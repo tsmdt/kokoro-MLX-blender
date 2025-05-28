@@ -70,7 +70,7 @@ def main(
     )
 ):
     """
-    Run TTS with KokoroMLX for M1-M4. Use one or two blendes voices.
+    Run TTS with KokoroMLX for M1-M4. Use one voice or blend two voices.
     """     
     import torch
     import mlx.core as mx
