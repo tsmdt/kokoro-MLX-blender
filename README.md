@@ -2,6 +2,12 @@
 
 Run Text-To-Speech with the [MLX implementation](https://huggingface.co/models?search=mlx%20kokoro) (Mac M1-M4) of [Kokoro](https://github.com/hexgrad/kokoro). Use one voice or blend two voices by specifying a mixing ratio.
 
+## Table of Contents
+* [Prerequisites](#prerequisites)
+* [Installation](#installation)
+* [Usage](#usage)
+* [Acknowledgment](#acknowledgment)
+
 ## Prerequisites
 
 * Python >= 3.10
@@ -67,11 +73,9 @@ Run the following command in CLI to check if everything works.
 kbx list
 ```
 
-If you see a list of voice names `kokoro-MLX-blender` should work. If not please make sure that you downloaded the `kokoro` model in the previouse step and placed it correctly in your `models` dir.
+If you see a list of voice names `kokoro-MLX-blender` should work. If not please make sure that you downloaded the `kokoro` model in the previous step and placed it correctly in your `models` folder.
 
 ## Usage
-Options for running TTS with `kokoro-MLX-blender`:
-
 ```shell
 $ kbx run
 
@@ -91,11 +95,15 @@ $ kbx run
 │    --verbose          --no-verbose               Enable verbose output [default: verbose]                                                                  │
 │    --help                                        Show this message and exit.                                                                               │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-
 ```
 
+## Examples
 
+Run TTS with two blended voices (60% voice1 and 40% voice2)
+```shell
+kbx run -t "This is a test in blending the male American voice of Eric with the female American voice of Heart." -v1 am_eric -v2 af_heart -m 0.6
+```
 
+## Acknowledgment
 
-
-
+OpenAI's `o4-mini-high` was used for creating the CLI app.
