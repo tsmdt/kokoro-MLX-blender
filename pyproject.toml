@@ -1,0 +1,30 @@
+[build-system]
+requires    = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name             = "kb-mlx"
+version          = "0.1"
+description      = "Kokoro Voice Blender CLI for MLX"
+readme           = "README.md"
+requires-python  = ">=3.10"
+license          = { text = "MIT" }
+authors          = [ { name = "Thomas Schmidt" } ]
+urls             = { "Homepage" = "https://github.com/tsmdt/kokoro-blender-MLX" }
+classifiers      = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies     = [
+    "click==8.1.8",
+    "typer==0.15.1",
+    "mlx-audio==0.2.3",
+    "kokoro==0.9.4",
+]
+
+[project.scripts]
+kbx = "kb_mlx.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
