@@ -40,7 +40,7 @@ source venv_kokoro/bin/activate
 pip install .
 ```
 
-### 5. Download MLX Kokoro model using huggingface-cli
+### 5. Download Kokoro MLX model using huggingface-cli
 Run the following command from the main project folder (`./kokoro-MLX-blender/`)
 
 ```shell
