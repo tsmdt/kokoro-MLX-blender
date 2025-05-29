@@ -19,40 +19,38 @@ The app comes with a user-friendly [gradio web interface](#gradio-app).
 
 ## Installation
 
-### Clone this repo
+### 1. Clone this repo
 ```shell
 git clone https://github.com/tsmdt/kokoro-MLX-blender.git
 ```
 
-### Change to project folder
+### 2. Change to project folder
 ```shell
 cd kokoro-MLX-blender
 ```
 
-### Create a python env and activate it
+### 3. Create a python env and activate it
 ```shell
 python3 -m venv venv_kokoro
 source venv_kokoro/bin/activate
 ```
 
-### Install kokoro-MLX-blender
+### 4. Install kokoro-MLX-blender
 ```shell
 pip install .
 ```
 
-### Download MLX Kokoro model using huggingface-cli
+### 5. Download MLX Kokoro model using huggingface-cli
 Run the following command from the main project folder (`./kokoro-MLX-blender/`)
 
 ```shell
 huggingface-cli download --local-dir models/Kokoro-82M-bf16 mlx-community/Kokoro-82M-bf16
 ```
-Make sure the folder `Kokoro-82M-bf16` ([HuggingFace](https://huggingface.co/mlx-community/Kokoro-82M-bf16/)) with a `voices` subfolder and different `.pt` files (e.g., `af_heart`, `af_alloy` etc.) now exists in the `models` folder of `kokoro-MLX-blender`. Your directory should look like this:
+Ensure that the folder `Kokoro-82M-bf16` ([Hugging Face](https://huggingface.co/mlx-community/Kokoro-82M-bf16/)) with a `voices` subfolder and various `.pt` files (e.g. `af_heart`, `af_alloy`, etc.) now exists within the `models` folder. Your directory should look like this:
 
 ```markdown
 kokoro-MLX-blender
 ├── kb_mlx/
-│   ├── __init__.py
-│   └── cli.py
 ├── models/
 │   └── Kokoro-82M-bf16/
 │       ├── samples/
@@ -69,6 +67,8 @@ kokoro-MLX-blender
 ├── README.md
 ...
 ```
+> [!Note]
+You can use different versions of the KokoroMLX model as well. Download your preferred one from [HuggingFace](https://huggingface.co/models?search=mlx%20kokoro) (cf. [Installation step 5]((#5-download-mlx-kokoro-model-using-huggingface-cli))) and make sure that the downloaded Kokoro model folder exists within the `models` folder of `kokoro-MLX-blender`. 
 
 ### Check if everything works correctly
 Run the following command in CLI to check if everything works.
