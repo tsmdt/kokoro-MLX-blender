@@ -222,6 +222,28 @@ class TTS_Handler:
                 raise typer.Exit(code=1)
             
         return blended_name
+    
+    def combine_voice_weights(self) -> None:
+        """
+        Combine voices if voice2 was selected.
+        """
+        if self.voice2:
+            self.weight1 = self.mix_ratio
+            self.weight2 = 1.0 - self.mix_ratio
+            self.blended_voice = self.blend_voices(
+                [self.voice1, self.voice2],
+                [self.weight1, self.weight2]
+            )
+            typer.secho(
+                f"Using blended voice: '{self.blended_voice}'",
+                fg=typer.colors.GREEN
+            )
+        else:
+            self.blended_voice = self.voice1
+            typer.secho(
+                f"Using single voice: '{self.blended_voice}'",
+                fg=typer.colors.GREEN
+            )
 
     def collect_inputs(self) -> None:
         """
@@ -259,9 +281,15 @@ class TTS_Handler:
                     raise typer.Exit(code=1)
 
                 # Construct output name
-                clean_name = re.sub(r'[\s\W]+', '_', self.text[:20].lower().strip())
-                temp_name = f"{clean_name}_{self.blended_voice}"
-                output_name = temp_name
+                truncated_text = self.text[:20].strip()
+                clean_name = re.sub(r'[^\w\s-]', '', truncated_text)
+                clean_name = re.sub(r'[-\s]+', '_', clean_name)
+                clean_name = clean_name[:20].strip('_').lower()
+                
+                if not clean_name:
+                    clean_name = "tts_output"
+                
+                output_name = f"{clean_name}_{self.blended_voice}"
                 self.inputs = [(self.text, output_name)]
         except FileNotFoundError:
             typer.secho(f"File not found: {self.text}", fg=typer.colors.RED)
@@ -275,17 +303,15 @@ class TTS_Handler:
         except ValueError as e:
             typer.secho(f"Invalid input: {e}", fg=typer.colors.RED)
             raise typer.Exit(code=1)
-    
-    def run_tts(self):
+        
+    def monkey_patch_kokoro(self):
         """
-        Run TTS
+        Monkey-patch KokoroPipeline to load embeddings locally first
         """
         import torch
         import mlx.core as mx
-        from mlx_audio.tts.generate import generate_audio
         from mlx_audio.tts.models.kokoro.pipeline import KokoroPipeline
-        
-        # Monkey-patch KokoroPipeline to load embeddings locally first
+    
         _original = KokoroPipeline.load_single_voice
         pipeline_model_dir = self.model_dir
 
@@ -298,24 +324,17 @@ class TTS_Handler:
 
         KokoroPipeline.load_single_voice = _load_single_voice_local
 
-        # Blend voices if voice2 was provided
-        if self.voice2:
-            self.weight1 = self.mix_ratio
-            self.weight2 = 1.0 - self.mix_ratio
-            self.blended_voice = self.blend_voices(
-                [self.voice1, self.voice2],
-                [self.weight1, self.weight2]
-            )
-            typer.secho(
-                f"Using blended voice: '{self.blended_voice}'",
-                fg=typer.colors.GREEN
-            )
-        else:
-            self.blended_voice = self.voice1
-            typer.secho(
-                f"Using single voice: '{self.blended_voice}'",
-                fg=typer.colors.GREEN
-            )
+    def run_tts(self):
+        """
+        Run TTS
+        """
+        from mlx_audio.tts.generate import generate_audio
+
+        # Monkey-patch kokoro to load local voices only
+        self.monkey_patch_kokoro()
+
+        # Blend voices
+        self.combine_voice_weights()
 
         # Collect inputs
         self.collect_inputs()
@@ -335,6 +354,13 @@ class TTS_Handler:
                 verbose=self.verbose
             )
 
+@app.command("app")
+def start_app():
+    """
+    Launch the Gradio web app.
+    """
+    from kb_mlx.app import app as gradio_app
+    gradio_app.launch()
 
 if __name__ == "__main__":
     app()
