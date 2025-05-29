@@ -1,4 +1,5 @@
 import typer
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -13,7 +14,7 @@ def main(
         ...,
         "--text",
         "-t",
-        help="Input text as .txt file path or direct string"
+        help="Input text(s) as string, single .txt or directory path"
     ),
     voice1: str = typer.Option(
         "af_heart",
@@ -25,7 +26,7 @@ def main(
         None,
         "--voice2",
         "-v2",
-        help="Name of the second voice (without .pt); if omitted, use only voice1"
+        help="Name of second voice (without .pt); if omitted, use only voice1"
     ),
     mix_ratio: float = typer.Option(
         0.5,
@@ -38,12 +39,6 @@ def main(
         "--speed",
         "-s",
         help="Speed multiplier (1.5 = 50% faster, 0.5 = 50% slower)"
-    ),
-    file_name: str = typer.Option(
-        None,
-        "--file-name",
-        "-fn",
-        help="Configure individual output audio file name (without extension)"
     ),
     model_dir: Path = typer.Option(
         "./models/Kokoro-82M-bf16",
@@ -71,25 +66,103 @@ def main(
 ):
     """
     Run TTS with KokoroMLX for M1-M4. Use one voice or blend two voices.
-    """     
-    import torch
-    import mlx.core as mx
-    from mlx_audio.tts.generate import generate_audio
-    from mlx_audio.tts.models.kokoro.pipeline import KokoroPipeline
+    """
+    handler = TTS_Handler(
+        text=text,
+        voice1=voice1,
+        voice2=voice2,
+        mix_ratio=mix_ratio,
+        speed=speed,
+        model_dir=model_dir,
+        output_dir=output_dir,
+        verbose=verbose
+    )
+    
+    handler.run_tts()
+
+@app.command("list", no_args_is_help=False)
+def list_voices(
+    model_dir: Path = typer.Option(
+        "./models/Kokoro-82M-bf16",
+        "--model-dir",
+        "-md",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        help="Path to the local Kokoro model directory"
+    ),
+):
+    """
+    List all available voices.
+    """
+    voices_path = Path(model_dir) / "voices"
+    if not voices_path.exists() or not voices_path.is_dir():
+        typer.secho(
+            f"Voices directory not found: {voices_path.resolve()}. Please \
+ensure the model_dir exists.",
+            fg=typer.colors.RED
+            )
+        raise typer.Exit(code=1)
+    files = sorted(voices_path.glob("*.pt"))
+    if not files:
+        typer.secho(
+            "No voice embeddings (.pt files) found.",
+            fg=typer.colors.RED
+            )
+        return
+    typer.echo("Available voices:")
+    for f in files:
+        typer.echo(f" - {f.stem}")
+
+
+class TTS_Handler:
+    """
+    Class for handling TTS tasks.
+    """
+    def __init__(
+        self,
+        text: str,
+        voice1: str = "af_heart",
+        voice2: Optional[str] = None,
+        mix_ratio: float = 0.5,
+        speed: float = 1.0,
+        model_dir: Path = Path("./models/Kokoro-82M-bf16"),
+        output_dir: str = "./output",
+        verbose: bool = True,
+    ) -> None:
+        self.text = text
+        self.voice1 = voice1
+        self.voice2 = voice2
+        self.weight1 = None
+        self.weight2 = None
+        self.blended_voice = None
+        self.mix_ratio = mix_ratio
+        self.speed = speed
+        self.inputs: list[(str, str)] = None
+        self.model_dir = model_dir
+        self.output_dir: Path = self._validate_output_dir(output_dir)
+        self.verbose = verbose
+
+    def _validate_output_dir(self, output_dir):
+        """
+        Check if output_dir exists. If not create it.
+        """
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(exist_ok=True, parents=True)
+        return self.output_dir
     
     def blend_voices(
-        current_model_path: Path,
+        self,
         voice_names: list[str],
         weights: Optional[list[float]] = None
-        ) -> str:
+        ) -> None:
         """
         Blend multiple voice style embeddings located in model_path/voices.
-        current_model_path: Path object to the model directory.
-        voice_names: list of voice identifiers (without .pt extension).
-        weights: list of float weights; if None, uses equal weights.
-        Returns the name of the blended voice embedding file (without extension).
         """
-        voices_dir = current_model_path / "voices"
+        import torch
+        
+        voices_dir = self.model_dir / "voices"
+        
         if not voices_dir.is_dir():
             typer.secho(
                 f"Voices directory not found: {voices_dir}",
@@ -130,111 +203,138 @@ def main(
                     )
                 raise typer.Exit(code=1)
         
-        # Create a name for the blended voice
         blended_name_parts = []
         for name, weight in zip(voice_names, weights):
-            blended_name_parts.append(f"{name}{int(weight*100)}") # e.g., voiceA50_voiceB50
+            blended_name_parts.append(f"{name}{int(weight*100)}")
         
         blended_name = "_".join(blended_name_parts) + "_blend"
         blended_path = voices_dir / f"{blended_name}.pt"
         
-        try:
-            torch.save(blended_style, blended_path)
-        except Exception as e:
-            typer.secho(f"Error saving blended voice {blended_name}.pt: {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+        # Save blended voice
+        if not blended_path.exists():
+            try:
+                torch.save(blended_style, blended_path)
+            except Exception as e:
+                typer.secho(
+                    f"Error saving blended voice {blended_name}.pt: {e}",
+                    fg=typer.colors.RED
+                )
+                raise typer.Exit(code=1)
             
         return blended_name
+
+    def collect_inputs(self) -> None:
+        """
+        Collect all input strings for TTS generation.
+        """
+        text_path = Path(self.text)
+
+        try:
+            # Single file
+            if text_path.is_file() and text_path.suffix == ".txt":
+                output_name = f"{text_path.stem}_{self.blended_voice}"
+                self.inputs = [(text_path.read_text(), output_name)]
+
+            # Folder
+            elif text_path.is_dir():
+                txt_files = sorted(text_path.glob("*.txt"))
+                if not txt_files:
+                    typer.secho(
+                        f"No .txt files found in directory: {text_path}",
+                        fg=typer.colors.RED
+                    )
+                    raise typer.Exit(code=1)
+                
+                self.inputs = (
+                    [(f.read_text(), f"{f.stem}_{self.blended_voice}") for f in txt_files]
+                )
+
+            # String
+            else:
+                if not self.text.strip():
+                    typer.secho(
+                        "The input text string is empty.",
+                        fg=typer.colors.RED
+                    )
+                    raise typer.Exit(code=1)
+
+                # Construct output name
+                clean_name = re.sub(r'[\s\W]+', '_', self.text[:20].lower().strip())
+                temp_name = f"{clean_name}_{self.blended_voice}"
+                output_name = temp_name
+                self.inputs = [(self.text, output_name)]
+        except FileNotFoundError:
+            typer.secho(f"File not found: {self.text}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+        except NotADirectoryError:
+            typer.secho(
+                f"Directory not found: {self.text}",
+                fg=typer.colors.RED
+                )
+            raise typer.Exit(code=1)
+        except ValueError as e:
+            typer.secho(f"Invalid input: {e}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
     
-    # Load text from .txt file or use direct string
-    if text.endswith(".txt") and Path(text).is_file():
-        text_content = Path(text).read_text()
-    else:
-        text_content = text
+    def run_tts(self):
+        """
+        Run TTS
+        """
+        import torch
+        import mlx.core as mx
+        from mlx_audio.tts.generate import generate_audio
+        from mlx_audio.tts.models.kokoro.pipeline import KokoroPipeline
+        
+        # Monkey-patch KokoroPipeline to load embeddings locally first
+        _original = KokoroPipeline.load_single_voice
+        pipeline_model_dir = self.model_dir
 
-    # Monkey-patch KokoroPipeline to load embeddings locally first
-    _original_load_single = KokoroPipeline.load_single_voice
-    
-    def _load_single_voice_local(self, voice):
-        voices_dir_local = Path(model_dir) / "voices"
-        print(voices_dir_local)
-        local_file = voices_dir_local / f"{voice}.pt"
-        if local_file.exists():
-            style_torch = torch.load(local_file, map_location="cpu")
-            style_arr = mx.array(style_torch.cpu().numpy())
-            return style_arr
-        return _original_load_single(self, voice)
+        def _load_single_voice_local(pipeline_self, voice):
+            voice_file = Path(pipeline_model_dir) / "voices" / f"{voice}.pt"
+            if voice_file.exists():
+                data = torch.load(voice_file, map_location="cpu")
+                return mx.array(data.cpu().numpy())
+            return _original(pipeline_self, voice)
 
-    KokoroPipeline.load_single_voice = _load_single_voice_local
+        KokoroPipeline.load_single_voice = _load_single_voice_local
 
-    # Determine voice or blend
-    if voice2:
-        w1 = mix_ratio
-        w2 = 1.0 - mix_ratio
-        blend_name = blend_voices(
-            model_dir,
-            [voice1, voice2],
-            [w1, w2]
-        )
-        typer.echo(f"Blended voice saved as '{blend_name}.pt'")
-    else:
-        blend_name = voice1
-        typer.echo(f"Using single voice: '{blend_name}'")
-
-    # Determine output filename
-    output_name = file_name if file_name else blend_name
-
-    # Prepare output directory
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-    prefix = output_path / output_name
-
-    # Generate audio
-    generate_audio(
-        text=text_content,
-        model_path=str(model_dir),
-        voice=blend_name,
-        speed=speed,
-        file_prefix=str(prefix),
-        audio_format="wav",
-        sample_rate=24000,
-        join_audio=True,
-        verbose=verbose
-    )
-
-@app.command("list", no_args_is_help=False)
-def list_voices(
-    model_dir: Path = typer.Option(
-        "./models/Kokoro-82M-bf16",
-        "--model-dir",
-        "-md",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        help="Path to the local Kokoro model directory"
-    ),
-):
-    """
-    List all available voices.
-    """
-    voices_path = Path(model_dir) / "voices"
-    if not voices_path.exists() or not voices_path.is_dir():
-        typer.secho(
-            f"Voices directory not found: {voices_path.resolve()}. Please \
-ensure the model_dir exists.",
-            fg=typer.colors.RED
+        # Blend voices if voice2 was provided
+        if self.voice2:
+            self.weight1 = self.mix_ratio
+            self.weight2 = 1.0 - self.mix_ratio
+            self.blended_voice = self.blend_voices(
+                [self.voice1, self.voice2],
+                [self.weight1, self.weight2]
             )
-        raise typer.Exit(code=1)
-    files = sorted(voices_path.glob("*.pt"))
-    if not files:
-        typer.secho(
-            "No voice embeddings (.pt files) found.",
-            fg=typer.colors.RED
+            typer.secho(
+                f"Using blended voice: '{self.blended_voice}'",
+                fg=typer.colors.GREEN
             )
-        return
-    typer.echo("Available voices:")
-    for f in files:
-        typer.echo(f" - {f.stem}")
+        else:
+            self.blended_voice = self.voice1
+            typer.secho(
+                f"Using single voice: '{self.blended_voice}'",
+                fg=typer.colors.GREEN
+            )
+
+        # Collect inputs
+        self.collect_inputs()
+
+        # Run TTS
+        for content, stem in self.inputs:
+            file_prefix = self.output_dir / stem
+            generate_audio(
+                text=content,
+                model_path=str(self.model_dir),
+                voice=self.blended_voice,
+                speed=self.speed,
+                file_prefix=str(file_prefix),
+                audio_format="wav",
+                sample_rate=24000,
+                join_audio=True,
+                verbose=self.verbose
+            )
+
 
 if __name__ == "__main__":
     app()
