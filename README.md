@@ -116,7 +116,18 @@ kbx app
 
 <img src="assets/gradio_app.png" width="100%">
 
-
 ## Acknowledgment
 
 OpenAI's `o4-mini-high` was used for creating the CLI app.
+
+## Citation
+
+```bibtex
+@software{kokoro_mlx_blender,
+  author       = {Thomas Schmidt},
+  title        = {Voice Blender CLI for Kokoro MLX},
+  year         = {2025},
+  url          = {https://github.com/tsmdt/kokoro-MLX-blender},
+  note         = {Accessed: 2025-05-29}
+}
+```
