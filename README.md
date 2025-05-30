@@ -1,4 +1,4 @@
-# Voice Blender CLI for Kokoro MLX
+# 🦜 Voice Blender CLI for Kokoro MLX
 
 Run **Text-To-Speech** with the [MLX implementation](https://huggingface.co/models?search=mlx%20kokoro) (Mac M1-M4) of [Kokoro](https://github.com/hexgrad/kokoro). Use one voice or blend two voices by specifying a mixing ratio. 
 
