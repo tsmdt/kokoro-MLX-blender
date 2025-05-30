@@ -70,7 +70,7 @@ kokoro-MLX-blender
 > [!Note]
 You can use different versions of the KokoroMLX model as well. Download your preferred one from [HuggingFace](https://huggingface.co/models?search=mlx%20kokoro) (cf. [Installation step 5](#5-download-mlx-kokoro-model-using-huggingface-cli)) and make sure that the downloaded Kokoro model folder exists within the `models` folder of `kokoro-MLX-blender`. 
 
-### Check if everything works correctly
+### 6. Check if everything works correctly
 Run the following command in CLI to check if everything works.
 
 ```shell
