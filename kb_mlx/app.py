@@ -71,7 +71,7 @@ theme = gr.themes.Citrus(
 
 # Build Gradio Blocks interface
 with gr.Blocks(theme=theme, css=css) as app:
-    title = "🦜 KokoroMLX Voice Blender"
+    title = "🦜 Kokoro MLX Voice Blender"
     gr.HTML(
         f"<h1 style='font-size:2.2rem; text-align:center; margin-bottom:0.5rem;'>{title}</h1>",
         elem_classes="center-text"
@@ -91,18 +91,19 @@ and `Voice 2` below.",
             file_input = gr.Files(
                 file_count="multiple",
                 file_types=[".txt"],
-                label="Upload Text Files"
+                label="Upload Text Files (.txt)"
             )
-            voice1_dropdown = gr.Dropdown(
-                choices=voice_choices,
-                value=voice_choices[0] if voice_choices else None,
-                label="Voice 1"
-            )
-            voice2_dropdown = gr.Dropdown(
-                choices=["", *voice_choices],
-                value="",
-                label="Voice 2 (optional)"
-            )
+            with gr.Row():
+                voice1_dropdown = gr.Dropdown(
+                    choices=voice_choices,
+                    value=voice_choices[0] if voice_choices else None,
+                    label="Voice 1"
+                )
+                voice2_dropdown = gr.Dropdown(
+                    choices=["", *voice_choices],
+                    value="",
+                    label="Voice 2 (optional)"
+                )
             mix_slider = gr.Slider(
                 minimum=0.0,
                 maximum=1.0,
@@ -123,7 +124,7 @@ and `Voice 2` below.",
             # Outputs
             output_files = gr.Files(
                 file_count="multiple",
-                label="Generated audio files"
+                label="Generated Audio Files (.wav)"
             )
             generate_button.click(
                 fn=tts_from_txt,
