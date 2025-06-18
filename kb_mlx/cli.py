@@ -3,118 +3,6 @@ import re
 from pathlib import Path
 from typing import Optional
 
-app = typer.Typer(
-    no_args_is_help=True,
-    help="KokoroMLX Voice Blender CLI for Mac M1-M4",
-    )
-
-@app.command("run", no_args_is_help=True)
-def main(
-    text: str = typer.Option(
-        ...,
-        "--text",
-        "-t",
-        help="Input text(s) as string, single .txt or directory path"
-    ),
-    voice1: str = typer.Option(
-        "af_heart",
-        "--voice1",
-        "-v1",
-        help="Name of the first voice (without .pt)"
-    ),
-    voice2: Optional[str] = typer.Option(
-        None,
-        "--voice2",
-        "-v2",
-        help="Name of second voice (without .pt); if omitted, use only voice1"
-    ),
-    mix_ratio: float = typer.Option(
-        0.5,
-        "--mix-ratio",
-        "-m",
-        help="Blend weight for voice1 and voice2 (0.5 = 50% each)"
-    ),
-    speed: float = typer.Option(
-        1,
-        "--speed",
-        "-s",
-        help="Speed multiplier (1.5 = 50% faster, 0.5 = 50% slower)"
-    ),
-    model_dir: Path = typer.Option(
-        "./models/Kokoro-82M-bf16",
-        "--model-dir",
-        "-md",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        help="Path to the local Kokoro model directory"
-    ),
-    output_dir: str = typer.Option(
-        "./output",
-        "--output-dir",
-        "-o",
-        file_okay=False,
-        dir_okay=True,
-        help="Directory where output audio file will be saved"
-    ),
-    verbose: bool = typer.Option(
-        True,
-        is_flag=True,
-        show_default=True,
-        help="Enable verbose output"
-    )
-):
-    """
-    Run TTS with KokoroMLX for M1-M4. Use one voice or blend two voices.
-    """
-    handler = TTS_Handler(
-        text=text,
-        voice1=voice1,
-        voice2=voice2,
-        mix_ratio=mix_ratio,
-        speed=speed,
-        model_dir=model_dir,
-        output_dir=output_dir,
-        verbose=verbose
-    )
-    
-    handler.run_tts()
-
-@app.command("list", no_args_is_help=False)
-def list_voices(
-    model_dir: Path = typer.Option(
-        "./models/Kokoro-82M-bf16",
-        "--model-dir",
-        "-md",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        help="Path to the local Kokoro model directory"
-    ),
-):
-    """
-    List all available voices.
-    """
-    voices_path = Path(model_dir) / "voices"
-    if not voices_path.exists() or not voices_path.is_dir():
-        typer.secho(
-            f"Voices directory not found: {voices_path.resolve()}. Please \
-ensure the model_dir exists.",
-            fg=typer.colors.RED
-            )
-        raise typer.Exit(code=1)
-    files = sorted(voices_path.glob("*.pt"))
-    if not files:
-        typer.secho(
-            "No voice embeddings (.pt files) found.",
-            fg=typer.colors.RED
-            )
-        return
-    typer.echo("Available voices:")
-    for f in files:
-        typer.echo(f" - {f.stem}")
-
-
 class TTS_Handler:
     """
     Class for handling TTS tasks.
@@ -127,7 +15,7 @@ class TTS_Handler:
         mix_ratio: float = 0.5,
         speed: float = 1.0,
         model_dir: Path = Path("./models/Kokoro-82M-bf16"),
-        output_dir: str = "./output",
+        output_dir: Path = None,
         verbose: bool = True,
     ) -> None:
         self.text = text
@@ -140,7 +28,7 @@ class TTS_Handler:
         self.speed = speed
         self.inputs: list[(str, str)] = None
         self.model_dir = model_dir
-        self.output_dir: Path = self._validate_output_dir(output_dir)
+        self.output_dir: Path = self._validate_output_dir(output_dir) if output_dir else None
         self.verbose = verbose
 
     def _validate_output_dir(self, output_dir):
@@ -256,6 +144,10 @@ class TTS_Handler:
             if text_path.is_file() and text_path.suffix == ".txt":
                 output_name = f"{text_path.stem}_{self.blended_voice}"
                 self.inputs = [(text_path.read_text(), output_name)]
+                
+                # Set input_dir as output_dir if output_dir not provided
+                if not self.output_dir:
+                    self.output_dir = text_path.parent
 
             # Folder
             elif text_path.is_dir():
@@ -270,6 +162,10 @@ class TTS_Handler:
                 self.inputs = (
                     [(f.read_text(), f"{f.stem}_{self.blended_voice}") for f in txt_files]
                 )
+                
+                # Set input_dir as output_dir if output_dir not provided
+                if not self.output_dir:
+                    self.output_dir = text_path
 
             # String
             else:
@@ -279,6 +175,10 @@ class TTS_Handler:
                         fg=typer.colors.RED
                     )
                     raise typer.Exit(code=1)
+                
+                # Set output_dir if output_dir not provided
+                if not self.output_dir:
+                    self.output_dir = Path('./output')
 
                 # Construct output name
                 truncated_text = self.text[:20].strip()
@@ -288,7 +188,7 @@ class TTS_Handler:
                 
                 if not clean_name:
                     clean_name = "tts_output"
-                
+                    
                 output_name = f"{clean_name}_{self.blended_voice}"
                 self.inputs = [(self.text, output_name)]
         except FileNotFoundError:
@@ -353,6 +253,120 @@ class TTS_Handler:
                 join_audio=True,
                 verbose=self.verbose
             )
+
+
+app = typer.Typer(
+    no_args_is_help=True,
+    help="KokoroMLX Voice Blender CLI for Mac M1-M4",
+    )
+
+@app.command("run", no_args_is_help=True)
+def main(
+    text: str = typer.Option(
+        ...,
+        "--text",
+        "-t",
+        help="Input text(s) as string, single .txt or directory path"
+    ),
+    voice1: str = typer.Option(
+        "af_heart",
+        "--voice1",
+        "-v1",
+        help="Name of the first voice (without .pt)"
+    ),
+    voice2: Optional[str] = typer.Option(
+        None,
+        "--voice2",
+        "-v2",
+        help="Name of second voice (without .pt); if omitted, use only voice1"
+    ),
+    mix_ratio: float = typer.Option(
+        0.5,
+        "--mix-ratio",
+        "-m",
+        help="Blend weight for voice1 and voice2 (0.5 = 50% each)"
+    ),
+    speed: float = typer.Option(
+        1,
+        "--speed",
+        "-s",
+        help="Speed multiplier (1.5 = 50% faster, 0.5 = 50% slower)"
+    ),
+    model_dir: Path = typer.Option(
+        "./models/Kokoro-82M-bf16",
+        "--model-dir",
+        "-md",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        help="Path to the local Kokoro model directory"
+    ),
+    output_dir: Path = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        file_okay=False,
+        dir_okay=True,
+        help="Directory where audio file(s) will be saved. Default input_folder"
+    ),
+    verbose: bool = typer.Option(
+        True,
+        is_flag=True,
+        show_default=True,
+        help="Enable verbose output"
+    )
+):
+    """
+    Run TTS with KokoroMLX for M1-M4. Use one voice or blend two voices.
+    """
+    handler = TTS_Handler(
+        text=text,
+        voice1=voice1,
+        voice2=voice2,
+        mix_ratio=mix_ratio,
+        speed=speed,
+        model_dir=model_dir,
+        output_dir=output_dir,
+        verbose=verbose
+    )
+    
+    handler.run_tts()
+
+@app.command("list", no_args_is_help=False)
+def list_voices(
+    model_dir: Path = typer.Option(
+        "./models/Kokoro-82M-bf16",
+        "--model-dir",
+        "-md",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        help="Path to the local Kokoro model directory"
+    ),
+):
+    """
+    List all available voices.
+    """
+    voices_path = Path(model_dir) / "voices"
+    if not voices_path.exists() or not voices_path.is_dir():
+        typer.secho(
+            f"Voices directory not found: {voices_path.resolve()}. Please \
+ensure the model_dir exists.",
+            fg=typer.colors.RED
+            )
+        raise typer.Exit(code=1)
+    files = sorted(voices_path.glob("*.pt"))
+    if not files:
+        typer.secho(
+            "No voice embeddings (.pt files) found.",
+            fg=typer.colors.RED
+            )
+        return
+    typer.echo("Available voices:")
+    for f in files:
+        typer.echo(f" - {f.stem}")
+
+
 
 @app.command("app")
 def start_app():
