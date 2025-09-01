@@ -15,7 +15,7 @@ class TTS_Handler:
         mix_ratio: float = 0.5,
         speed: float = 1.0,
         model_dir: Path = Path("./models/Kokoro-82M-bf16"),
-        output_dir: Path = None,
+        output_dir: Path = Path("output"),
         verbose: bool = True,
     ) -> None:
         self.text = text
@@ -28,13 +28,13 @@ class TTS_Handler:
         self.speed = speed
         self.inputs: list[(str, str)] = None
         self.model_dir = model_dir
-        self.output_dir: Path = self._validate_output_dir(output_dir) if output_dir else None
+        self.output_dir: Path = self._validate_output_dir(output_dir)
         self.verbose = verbose
 
     def _validate_output_dir(self, output_dir):
         """
         Check if output_dir exists. If not create it.
-        """
+        """        
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True, parents=True)
         return self.output_dir
@@ -242,6 +242,7 @@ class TTS_Handler:
         # Run TTS
         for content, stem in self.inputs:
             file_prefix = self.output_dir / stem
+            file_prefix.parent.mkdir(parents=True, exist_ok=True)
             generate_audio(
                 text=content,
                 model_path=str(self.model_dir),
@@ -302,12 +303,12 @@ def main(
         help="Path to the local Kokoro model directory"
     ),
     output_dir: Path = typer.Option(
-        None,
+        "output",
         "--output-dir",
         "-o",
         file_okay=False,
         dir_okay=True,
-        help="Directory where audio file(s) will be saved. Default input_folder"
+        help="Directory where audio file(s) will be saved (Default: ./output)"
     ),
     verbose: bool = typer.Option(
         True,
