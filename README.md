@@ -16,7 +16,7 @@ The app comes with a user-friendly [gradio web interface](#gradio-app).
 
 ## Prerequisites
 
-* Python >= 3.10
+* Python >= 3.11
 * HuggingFace Access Token
 
 ## Installation
