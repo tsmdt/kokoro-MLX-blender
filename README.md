@@ -1,6 +1,6 @@
 [![PyPI version](https://badge.fury.io/py/kb-mlx.svg)](https://badge.fury.io/py/kb-mlx)
 
-# 🦜 Voice Blender CLI for Kokoro MLX
+# 🦜 Kokoro MLX Voice Blender
 
 Run **Text-To-Speech** with the [MLX implementation](https://huggingface.co/models?search=mlx%20kokoro) (Mac M1-M4) of [Kokoro](https://github.com/hexgrad/kokoro) to vastly improve processing speed. Use one voice or blend two voices by specifying a mixing ratio. 
 
@@ -127,7 +127,7 @@ OpenAI's `o4-mini-high` was used for creating the CLI app.
 ```bibtex
 @software{kokoro_mlx_blender,
   author       = {Thomas Schmidt},
-  title        = {Voice Blender CLI for Kokoro MLX},
+  title        = {Kokoro MLX Voice Blender},
   year         = {2025},
   url          = {https://github.com/tsmdt/kokoro-MLX-blender},
   note         = {Accessed: 2025-05-29}
